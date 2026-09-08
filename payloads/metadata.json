@@ -1,6 +1,6 @@
 {
-  "generated": "2026-09-08T13:36:53.709513+00:00",
-  "total_unique_payloads": 76,
+  "generated": "2026-09-08T13:49:52.420910+00:00",
+  "total_unique_payloads": 74,
   "source_errors": [],
   "categories": {
     "encoding": {
@@ -8,9 +8,9 @@
       "medium": 2
     },
     "jailbreak": {
-      "small": 34,
+      "small": 33,
       "medium": 32,
-      "large": 5
+      "large": 4
     },
     "exfil": {
       "medium": 1
@@ -19,8 +19,7 @@
   "models": {
     "deepseek": {
       "jailbreak": {
-        "medium": 1,
-        "large": 1
+        "medium": 1
       }
     },
     "google": {
