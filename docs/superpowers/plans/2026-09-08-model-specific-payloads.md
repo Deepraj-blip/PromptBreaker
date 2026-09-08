@@ -4,7 +4,7 @@
 
 **Goal:** Add model-specific payload sets (openai/anthropic/google/meta, open-ended) alongside the existing generic tiered lists, close the undelivered `exfil`/`override` category gap, and harden `scripts/fetch_and_build.py` (accurate token counting, test coverage, a regression guardrail) since it runs unattended on a weekly cron with zero tests today.
 
-**Architecture:** All changes are within `scripts/fetch_and_build.py` (the aggregation/build pipeline), `scripts/sources.yaml` (source config), the GitHub Action, and `README.md`. No new services — same single-script batch pipeline, extended with: a second bucketing dimension (model, alongside category/tier), a model-aware markdown parser, a mechanical encoding-variant generator, a per-payload JSON index, and a post-build regression check. Every change is additive to the existing raw-URL file contract.
+**Architecture:** All changes are within `scripts/fetch_and_build.py` (the aggregation/build pipeline), `scripts/sources.yaml` (source config), the GitHub Action, and `README.md`. No new services — same single-script batch pipeline, extended with: a second bucketing dimension (model, alongside category/tier), a model-aware markdown parser, a per-payload JSON index, and a post-build regression check. Every change is additive to the existing raw-URL file contract.
 
 **Tech Stack:** Python 3.11, PyYAML, requests, tiktoken (new), pytest (new), GitHub Actions.
 

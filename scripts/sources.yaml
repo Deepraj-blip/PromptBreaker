@@ -47,12 +47,12 @@ sources:
 
   # Organized by the document's own ## headers per model (ChatGPT, Claude,
   # Llama2, Gemini2.0, Grok3, DeepSeek), plus a "LLM System Prompts
-  # Leaking" section. Verified during planning: content is persona/
-  # roleplay guardrail-testing prompts (DAN-style), not the
-  # harmful-compliance archives this repo deliberately excludes (see
-  # README). category/model both null here because
-  # parse_markdown_by_model_sections determines them per-entry from the
-  # document's own section headers.
+  # Leaking" section. Mostly persona/roleplay guardrail-testing prompts,
+  # but the raw file also contains some harmful-compliance entries
+  # (malware/weapon/etc. generation). Those are dropped at ingestion by
+  # is_harmful_compliance() per the README exclusion policy;
+  # category/model are determined per-entry by
+  # parse_markdown_by_model_sections from the document's own ## headings.
   - name: langgptai-llm-jailbreaks
     url: https://raw.githubusercontent.com/langgptai/LLM-Jailbreaks/main/README.md
     parser: parse_markdown_by_model_sections

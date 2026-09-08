@@ -305,8 +305,6 @@ previously shipped untested:
 - The `fingerprint_models` set-accumulation fix from §4 — a fingerprint
   that appears from both a model-tagged and non-model-tagged source ends
   up in the model-specific output regardless of fetch order
-- The encoding-variant generator (§10) — each transform is deterministic
-  and directly assertable
 `pytest` is added to `scripts/requirements.txt`.
 
 ### 13. CI regression guardrail

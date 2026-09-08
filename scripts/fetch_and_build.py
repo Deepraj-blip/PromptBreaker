@@ -226,6 +226,26 @@ JAILBREAK_KEYWORDS = ["ignore", "disregard", "jailbreak", "dan", "developer mode
 EXFIL_KEYWORDS = ["reveal", "print your", "repeat everything", "leak", "exfiltrate"]
 ENCODING_KEYWORDS = ["base64", "rot13", "unicode", "encode"]
 
+# Terms indicating a request to actually PRODUCE harmful artifacts
+# (malware, weapons, drugs, abuse material) rather than to test whether a
+# guardrail holds. Payloads matching are dropped at ingestion per the
+# README exclusion policy. Best-effort keyword heuristic — deliberately
+# does NOT catch persona/roleplay/policy-bypass jailbreaks (DAN etc.),
+# which are legitimate guardrail tests.
+HARMFUL_COMPLIANCE_TERMS = [
+    "malware", "ransomware", "keylogger", "spyware", "rootkit", "botnet",
+    "trojan horse", "phishing", "phishy",
+    "napalm", "explosive", "pipe bomb", "how to make a bomb", "firearm",
+    "bioweapon", "chemical weapon", "nerve agent",
+    "methamphetamine", "synthesize meth", "cocaine", "fentanyl", "heroin",
+    "child sexual", "csam",
+]
+
+
+def is_harmful_compliance(text):
+    lowered = text.lower()
+    return any(term in lowered for term in HARMFUL_COMPLIANCE_TERMS)
+
 
 def infer_category(text, default_category):
     if default_category:
@@ -315,6 +335,8 @@ def main():
                 text, entry_model, entry_category = raw_entry, None, None
             text = text.strip()
             if not text or len(text) > 2000:
+                continue
+            if is_harmful_compliance(text):
                 continue
             category = entry_category or infer_category(text, source.get("category"))
             model = entry_model or source.get("model")

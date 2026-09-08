@@ -17,6 +17,8 @@ payloads/
     exfil-small.txt / -medium.txt / -large.txt
   override/
     override-small.txt / -medium.txt / -large.txt
+                                # not yet populated (no current source
+                                # yields override-category content)
   encoding/
     encoding-small.txt / -medium.txt / -large.txt
                                 # "decode-and-execute this" style templates
