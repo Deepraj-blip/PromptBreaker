@@ -1,2 +1,4 @@
 requests>=2.31
 pyyaml>=6.0
+tiktoken>=0.7
+pytest>=8.0

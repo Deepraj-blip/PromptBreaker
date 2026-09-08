@@ -23,6 +23,7 @@ from datetime import datetime, timezone
 
 import yaml
 import requests
+import tiktoken
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PAYLOADS_DIR = os.path.join(REPO_ROOT, "payloads")
@@ -32,10 +33,12 @@ SMALL_MAX_TOKENS = 15
 MEDIUM_MAX_TOKENS = 60
 # large = anything above medium
 
+TIKTOKEN_ENCODING = "o200k_base"
+_TOKEN_ENCODER = tiktoken.get_encoding(TIKTOKEN_ENCODING)
+
 
 def estimate_tokens(text):
-    words = len(text.split())
-    return max(1, round(words * 1.3))
+    return max(1, len(_TOKEN_ENCODER.encode(text)))
 
 
 def fingerprint(text):
@@ -104,6 +107,10 @@ def parse_markdown_code_blocks(raw_text):
             continue
         if len(span.split()) < 4:
             continue
+        if "|" in span:
+            continue  # markdown table cell artifact
+        if span[0].islower() and not any(c in span for c in "(_="):
+            continue  # sentence fragment cut off mid-prose, not code-like
         cleaned.append(span)
 
     # fenced code blocks - useful for multi-line payload templates, but
@@ -130,10 +137,71 @@ def parse_json_array(raw_text):
     return []
 
 
+MODEL_HEADER_MAP = {
+    "chatgpt": "openai", "gpt": "openai",
+    "claude": "anthropic",
+    "gemini": "google", "bard": "google",
+    "llama": "meta",
+    "grok": "xai",
+    "deepseek": "deepseek",
+}
+
+
+def parse_markdown_by_model_sections(raw_text):
+    """
+    For markdown organized with per-model `##` headings (optionally under
+    a `#` top-level heading), extracts payload spans per section using the
+    same rules as parse_markdown_code_blocks, tagging each with the model
+    named in its own `##` heading (a structural signal from the document,
+    not a content guess) and, when the enclosing `#` heading mentions
+    "leak", overriding category to "exfil" (system-prompt leaking is a
+    data-exfiltration technique regardless of which model it targets).
+    """
+    sections = []
+    current_h1 = None
+    current_h2 = None
+    current_lines = []
+
+    def flush():
+        if current_h2 is not None and current_lines:
+            sections.append((current_h1, current_h2, "\n".join(current_lines)))
+
+    for line in raw_text.splitlines():
+        h1_match = re.match(r"^#\s+(.*)", line)
+        h2_match = re.match(r"^##\s+(.*)", line)
+        if h1_match:
+            flush()
+            current_h1 = h1_match.group(1).strip()
+            current_h2 = None
+            current_lines = []
+            continue
+        if h2_match:
+            flush()
+            current_h2 = h2_match.group(1).strip()
+            current_lines = []
+            continue
+        current_lines.append(line)
+    flush()
+
+    results = []
+    for h1_title, h2_title, section_text in sections:
+        model = None
+        lowered_h2 = h2_title.lower()
+        for key, tag in MODEL_HEADER_MAP.items():
+            if key in lowered_h2:
+                model = tag
+                break
+        category_override = "exfil" if (h1_title and "leak" in h1_title.lower()) else None
+        for span in parse_markdown_code_blocks(section_text):
+            results.append({"text": span, "model": model, "category": category_override})
+    return results
+
+
 PARSERS = {
     "parse_garak_python_module": parse_garak_python_module,
     "parse_markdown_code_blocks": parse_markdown_code_blocks,
     "parse_json_array": parse_json_array,
+    "parse_markdown_by_model_sections": parse_markdown_by_model_sections,
 }
 
 
@@ -149,26 +217,108 @@ def fetch_source(source):
         return [], "%s: %s" % (source["name"], str(e))
 
 
+OVERRIDE_KEYWORDS = [
+    "override your instructions", "override the system prompt",
+    "new instructions supersede", "system prompt is now",
+    "disregard your system prompt", "your new instructions are",
+]
+JAILBREAK_KEYWORDS = ["ignore", "disregard", "jailbreak", "dan", "developer mode"]
+EXFIL_KEYWORDS = ["reveal", "print your", "repeat everything", "leak", "exfiltrate"]
+ENCODING_KEYWORDS = ["base64", "rot13", "unicode", "encode"]
+
+# Terms indicating a request to actually PRODUCE harmful artifacts
+# (malware, weapons, drugs, abuse material) rather than to test whether a
+# guardrail holds. Payloads matching are dropped at ingestion per the
+# README exclusion policy. Best-effort keyword heuristic — deliberately
+# does NOT catch persona/roleplay/policy-bypass jailbreaks (DAN etc.),
+# which are legitimate guardrail tests.
+HARMFUL_COMPLIANCE_TERMS = [
+    "malware", "ransomware", "keylogger", "spyware", "rootkit", "botnet",
+    "trojan horse", "phishing", "phishy",
+    "napalm", "explosive", "pipe bomb", "how to make a bomb", "firearm",
+    "bioweapon", "chemical weapon", "nerve agent",
+    "methamphetamine", "synthesize meth", "cocaine", "fentanyl", "heroin",
+    "child sexual", "csam",
+]
+
+
+def is_harmful_compliance(text):
+    lowered = text.lower()
+    return any(term in lowered for term in HARMFUL_COMPLIANCE_TERMS)
+
+
 def infer_category(text, default_category):
     if default_category:
         return default_category
     lowered = text.lower()
-    if any(k in lowered for k in ["ignore", "disregard", "override", "system prompt", "jailbreak", "dan"]):
+    if any(k in lowered for k in OVERRIDE_KEYWORDS):
+        return "override"
+    if any(k in lowered for k in JAILBREAK_KEYWORDS):
         return "jailbreak"
-    if any(k in lowered for k in ["reveal", "print your", "repeat everything", "leak", "exfiltrate"]):
+    if any(k in lowered for k in EXFIL_KEYWORDS):
         return "exfil"
-    if any(k in lowered for k in ["base64", "rot13", "unicode", "encode"]):
+    if any(k in lowered for k in ENCODING_KEYWORDS):
         return "encoding"
     return "jailbreak"  # safe default bucket
+
+
+def write_tier_files(base_dir, filename_prefix, tiers, header_fields, generated_ts):
+    os.makedirs(base_dir, exist_ok=True)
+    header_bits = " ".join("%s=%s" % (k, v) for k, v in header_fields.items())
+    counts = {}
+    for tier, texts in tiers.items():
+        texts = sorted(set(texts))
+        out_path = os.path.join(base_dir, "%s-%s.txt" % (filename_prefix, tier))
+        with open(out_path, "w") as f:
+            f.write("# Auto-generated by scripts/fetch_and_build.py - do not edit by hand\n")
+            f.write("# %s tier=%s count=%d generated=%s\n" % (header_bits, tier, len(texts), generated_ts))
+            for t in texts:
+                f.write(t.replace("\n", " ") + "\n")
+        counts[tier] = len(texts)
+        print("Wrote %d payloads to %s" % (len(texts), out_path))
+    return counts
+
+
+def build_payload_index(seen_fingerprints, fingerprint_sources, fingerprint_models, fp_tier):
+    index = []
+    for fp, (text, category) in seen_fingerprints.items():
+        index.append({
+            "text": text,
+            "category": category,
+            "tier": fp_tier[fp],
+            "models": sorted(fingerprint_models.get(fp, set())),
+            "source_count": len(fingerprint_sources[fp]),
+            "sources": sorted(fingerprint_sources[fp]),
+        })
+    index.sort(key=lambda entry: (entry["category"], entry["tier"], entry["text"]))
+    return index
+
+
+REGRESSION_DROP_THRESHOLD = 0.5
+
+
+def check_not_regressed(total_unique, metadata_path):
+    if total_unique == 0:
+        raise SystemExit("Refusing to write: total_unique_payloads is 0 (all sources failed?)")
+    if os.path.exists(metadata_path):
+        with open(metadata_path) as f:
+            previous = json.load(f)
+        previous_total = previous.get("total_unique_payloads", 0)
+        if previous_total > 0 and total_unique < previous_total * (1 - REGRESSION_DROP_THRESHOLD):
+            raise SystemExit(
+                "Refusing to write: total_unique_payloads dropped from %d to %d (>%.0f%% drop)"
+                % (previous_total, total_unique, REGRESSION_DROP_THRESHOLD * 100)
+            )
 
 
 def main():
     with open(SOURCES_FILE) as f:
         config = yaml.safe_load(f)
 
-    all_entries = []  # list of (text, category, source_name)
-    fingerprint_sources = defaultdict(set)  # fingerprint -> set of source names (for top-N ranking)
-    seen_fingerprints = {}  # fingerprint -> (text, category)
+    all_entries = []
+    fingerprint_sources = defaultdict(set)
+    fingerprint_models = defaultdict(set)
+    seen_fingerprints = {}
     errors = []
 
     for source in config["sources"]:
@@ -178,27 +328,45 @@ def main():
             print("WARNING: %s" % err)
             continue
         print("Fetched %d raw entries from %s" % (len(entries), source["name"]))
-        for text in entries:
+        for raw_entry in entries:
+            if isinstance(raw_entry, dict):
+                text, entry_model, entry_category = raw_entry["text"], raw_entry.get("model"), raw_entry.get("category")
+            else:
+                text, entry_model, entry_category = raw_entry, None, None
             text = text.strip()
-            if not text or len(text) > 2000:  # skip empty/absurdly long outliers
+            if not text or len(text) > 2000:
                 continue
-            category = infer_category(text, source.get("category"))
+            if is_harmful_compliance(text):
+                continue
+            category = entry_category or infer_category(text, source.get("category"))
+            model = entry_model or source.get("model")
             fp = fingerprint(text)
             fingerprint_sources[fp].add(source["name"])
+            if model:
+                fingerprint_models[fp].add(model)
             if fp not in seen_fingerprints:
                 seen_fingerprints[fp] = (text, category)
 
     total_unique = len(seen_fingerprints)
     print("Total unique payloads after dedup: %d" % total_unique)
 
-    # bucket by category, then by length tier
-    by_category = defaultdict(lambda: defaultdict(list))  # category -> tier -> [text]
+    check_not_regressed(total_unique, os.path.join(PAYLOADS_DIR, "metadata.json"))
+
+    fp_tier = {}
     for fp, (text, category) in seen_fingerprints.items():
         tokens = estimate_tokens(text)
-        tier = "small" if tokens <= SMALL_MAX_TOKENS else ("medium" if tokens <= MEDIUM_MAX_TOKENS else "large")
-        by_category[category][tier].append(text)
+        fp_tier[fp] = "small" if tokens <= SMALL_MAX_TOKENS else ("medium" if tokens <= MEDIUM_MAX_TOKENS else "large")
 
-    # rank for topN files: more independent sources agreeing = ranked higher
+    by_category = defaultdict(lambda: defaultdict(list))
+    for fp, (text, category) in seen_fingerprints.items():
+        by_category[category][fp_tier[fp]].append(text)
+
+    by_model = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
+    for fp, models in fingerprint_models.items():
+        text, category = seen_fingerprints[fp]
+        for model in models:
+            by_model[model][category][fp_tier[fp]].append(text)
+
     ranked_all = sorted(seen_fingerprints.keys(),
                          key=lambda fp: -len(fingerprint_sources[fp]))
 
@@ -208,26 +376,23 @@ def main():
         "total_unique_payloads": total_unique,
         "source_errors": errors,
         "categories": {},
+        "models": {},
     }
 
     for category, tiers in by_category.items():
         cat_dir = os.path.join(PAYLOADS_DIR, category)
-        os.makedirs(cat_dir, exist_ok=True)
-        cat_meta = {}
-        for tier, texts in tiers.items():
-            texts = sorted(set(texts))  # stable order for clean diffs
-            out_path = os.path.join(cat_dir, "%s-%s.txt" % (category, tier))
-            with open(out_path, "w") as f:
-                f.write("# Auto-generated by scripts/fetch_and_build.py - do not edit by hand\n")
-                f.write("# category=%s tier=%s count=%d generated=%s\n" % (
-                    category, tier, len(texts), metadata["generated"]))
-                for t in texts:
-                    f.write(t.replace("\n", " ") + "\n")
-            cat_meta[tier] = len(texts)
-            print("Wrote %d payloads to %s" % (len(texts), out_path))
-        metadata["categories"][category] = cat_meta
+        metadata["categories"][category] = write_tier_files(
+            cat_dir, category, tiers, {"category": category}, metadata["generated"])
 
-    # top25 / top100 / top1000 across ALL categories combined, ranked by source agreement
+    for model, cats in by_model.items():
+        model_meta = {}
+        for category, tiers in cats.items():
+            cat_dir = os.path.join(PAYLOADS_DIR, "models", model, category)
+            filename_prefix = "%s-%s" % (model, category)
+            model_meta[category] = write_tier_files(
+                cat_dir, filename_prefix, tiers, {"model": model, "category": category}, metadata["generated"])
+        metadata["models"][model] = model_meta
+
     for n in (25, 100, 1000):
         top_fps = ranked_all[:n]
         out_path = os.path.join(PAYLOADS_DIR, "top%d.txt" % n)
@@ -237,6 +402,11 @@ def main():
                 text, category = seen_fingerprints[fp]
                 f.write(text.replace("\n", " ") + "\n")
         print("Wrote top%d.txt (%d payloads)" % (n, len(top_fps)))
+
+    payload_index = build_payload_index(seen_fingerprints, fingerprint_sources, fingerprint_models, fp_tier)
+    with open(os.path.join(PAYLOADS_DIR, "payload_index.json"), "w") as f:
+        json.dump(payload_index, f, indent=2)
+    print("Wrote payload_index.json (%d entries)" % len(payload_index))
 
     with open(os.path.join(PAYLOADS_DIR, "metadata.json"), "w") as f:
         json.dump(metadata, f, indent=2)
