@@ -23,6 +23,7 @@ from datetime import datetime, timezone
 
 import yaml
 import requests
+import tiktoken
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PAYLOADS_DIR = os.path.join(REPO_ROOT, "payloads")
@@ -32,10 +33,12 @@ SMALL_MAX_TOKENS = 15
 MEDIUM_MAX_TOKENS = 60
 # large = anything above medium
 
+TIKTOKEN_ENCODING = "o200k_base"
+_TOKEN_ENCODER = tiktoken.get_encoding(TIKTOKEN_ENCODING)
+
 
 def estimate_tokens(text):
-    words = len(text.split())
-    return max(1, round(words * 1.3))
+    return max(1, len(_TOKEN_ENCODER.encode(text)))
 
 
 def fingerprint(text):
