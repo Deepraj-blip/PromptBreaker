@@ -194,6 +194,21 @@ def write_tier_files(base_dir, filename_prefix, tiers, header_fields, generated_
     return counts
 
 
+def build_payload_index(seen_fingerprints, fingerprint_sources, fingerprint_models, fp_tier):
+    index = []
+    for fp, (text, category) in seen_fingerprints.items():
+        index.append({
+            "text": text,
+            "category": category,
+            "tier": fp_tier[fp],
+            "models": sorted(fingerprint_models.get(fp, set())),
+            "source_count": len(fingerprint_sources[fp]),
+            "sources": sorted(fingerprint_sources[fp]),
+        })
+    index.sort(key=lambda entry: (entry["category"], entry["tier"], entry["text"]))
+    return index
+
+
 def main():
     with open(SOURCES_FILE) as f:
         config = yaml.safe_load(f)
@@ -277,6 +292,11 @@ def main():
                 text, category = seen_fingerprints[fp]
                 f.write(text.replace("\n", " ") + "\n")
         print("Wrote top%d.txt (%d payloads)" % (n, len(top_fps)))
+
+    payload_index = build_payload_index(seen_fingerprints, fingerprint_sources, fingerprint_models, fp_tier)
+    with open(os.path.join(PAYLOADS_DIR, "payload_index.json"), "w") as f:
+        json.dump(payload_index, f, indent=2)
+    print("Wrote payload_index.json (%d entries)" % len(payload_index))
 
     with open(os.path.join(PAYLOADS_DIR, "metadata.json"), "w") as f:
         json.dump(metadata, f, indent=2)

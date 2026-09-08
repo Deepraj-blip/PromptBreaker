@@ -101,3 +101,32 @@ def test_model_tag_not_lost_when_generic_source_processed_first():
     fingerprint_models[fp]  # generic source: no .add() call
     fingerprint_models[fp].add("openai")  # model-tagged source arrives second
     assert "openai" in fingerprint_models[fp]
+
+
+from fetch_and_build import build_payload_index
+
+
+def test_build_payload_index_shape_and_sorting():
+    seen_fingerprints = {
+        "fp-b": ("b payload", "jailbreak"),
+        "fp-a": ("a payload", "encoding"),
+    }
+    fingerprint_sources = defaultdict(set, {
+        "fp-b": {"source-x", "source-y"},
+        "fp-a": {"source-z"},
+    })
+    fingerprint_models = defaultdict(set, {"fp-b": {"openai"}})
+    fp_tier = {"fp-b": "small", "fp-a": "medium"}
+
+    index = build_payload_index(seen_fingerprints, fingerprint_sources, fingerprint_models, fp_tier)
+
+    assert index == [
+        {
+            "text": "a payload", "category": "encoding", "tier": "medium",
+            "models": [], "source_count": 1, "sources": ["source-z"],
+        },
+        {
+            "text": "b payload", "category": "jailbreak", "tier": "small",
+            "models": ["openai"], "source_count": 2, "sources": ["source-x", "source-y"],
+        },
+    ]
