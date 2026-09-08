@@ -16,6 +16,7 @@ import os
 import re
 import sys
 import json
+import csv
 import hashlib
 import ast
 from collections import defaultdict, Counter
@@ -279,6 +280,20 @@ def write_tier_files(base_dir, filename_prefix, tiers, header_fields, generated_
     return counts
 
 
+def write_payload_csv(payload_index, out_path):
+    rows = 0
+    with open(out_path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow(["prompt", "category", "tier", "model", "source_count"])
+        for entry in payload_index:
+            models = entry["models"] if entry["models"] else [""]
+            for model in models:
+                writer.writerow([entry["text"], entry["category"], entry["tier"],
+                                 model, entry["source_count"]])
+                rows += 1
+    return rows
+
+
 def build_payload_index(seen_fingerprints, fingerprint_sources, fingerprint_models, fp_tier):
     index = []
     for fp, (text, category) in seen_fingerprints.items():
@@ -407,6 +422,9 @@ def main():
     with open(os.path.join(PAYLOADS_DIR, "payload_index.json"), "w") as f:
         json.dump(payload_index, f, indent=2)
     print("Wrote payload_index.json (%d entries)" % len(payload_index))
+
+    csv_rows = write_payload_csv(payload_index, os.path.join(PAYLOADS_DIR, "promptbreaker.csv"))
+    print("Wrote promptbreaker.csv (%d rows)" % csv_rows)
 
     with open(os.path.join(PAYLOADS_DIR, "metadata.json"), "w") as f:
         json.dump(metadata, f, indent=2)
