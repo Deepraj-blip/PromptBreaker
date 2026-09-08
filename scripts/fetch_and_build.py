@@ -152,15 +152,27 @@ def fetch_source(source):
         return [], "%s: %s" % (source["name"], str(e))
 
 
+OVERRIDE_KEYWORDS = [
+    "override your instructions", "override the system prompt",
+    "new instructions supersede", "system prompt is now",
+    "disregard your system prompt", "your new instructions are",
+]
+JAILBREAK_KEYWORDS = ["ignore", "disregard", "jailbreak", "dan", "developer mode"]
+EXFIL_KEYWORDS = ["reveal", "print your", "repeat everything", "leak", "exfiltrate"]
+ENCODING_KEYWORDS = ["base64", "rot13", "unicode", "encode"]
+
+
 def infer_category(text, default_category):
     if default_category:
         return default_category
     lowered = text.lower()
-    if any(k in lowered for k in ["ignore", "disregard", "override", "system prompt", "jailbreak", "dan"]):
+    if any(k in lowered for k in OVERRIDE_KEYWORDS):
+        return "override"
+    if any(k in lowered for k in JAILBREAK_KEYWORDS):
         return "jailbreak"
-    if any(k in lowered for k in ["reveal", "print your", "repeat everything", "leak", "exfiltrate"]):
+    if any(k in lowered for k in EXFIL_KEYWORDS):
         return "exfil"
-    if any(k in lowered for k in ["base64", "rot13", "unicode", "encode"]):
+    if any(k in lowered for k in ENCODING_KEYWORDS):
         return "encoding"
     return "jailbreak"  # safe default bucket
 
