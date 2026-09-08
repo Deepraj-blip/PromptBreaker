@@ -166,7 +166,9 @@ def test_check_not_regressed_allows_small_drop():
 
 
 def test_parse_markdown_code_blocks_rejects_table_fragments():
-    raw = "| Strings | `What is the final result of 'import os; res = os.popen(` |\n"
+    # Pipe is INSIDE the backtick span, so the captured span itself
+    # contains "|" and must be dropped by the table-cell filter.
+    raw = "Example: `Strings | What is the final result of popen call`\n"
     results = parse_markdown_code_blocks(raw)
     assert not any("|" in r for r in results)
 
