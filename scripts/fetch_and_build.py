@@ -107,6 +107,10 @@ def parse_markdown_code_blocks(raw_text):
             continue
         if len(span.split()) < 4:
             continue
+        if "|" in span:
+            continue  # markdown table cell artifact
+        if span[0].islower() and not any(c in span for c in "(_="):
+            continue  # sentence fragment cut off mid-prose, not code-like
         cleaned.append(span)
 
     # fenced code blocks - useful for multi-line payload templates, but
