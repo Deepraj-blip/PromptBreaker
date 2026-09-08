@@ -137,10 +137,71 @@ def parse_json_array(raw_text):
     return []
 
 
+MODEL_HEADER_MAP = {
+    "chatgpt": "openai", "gpt": "openai",
+    "claude": "anthropic",
+    "gemini": "google", "bard": "google",
+    "llama": "meta",
+    "grok": "xai",
+    "deepseek": "deepseek",
+}
+
+
+def parse_markdown_by_model_sections(raw_text):
+    """
+    For markdown organized with per-model `##` headings (optionally under
+    a `#` top-level heading), extracts payload spans per section using the
+    same rules as parse_markdown_code_blocks, tagging each with the model
+    named in its own `##` heading (a structural signal from the document,
+    not a content guess) and, when the enclosing `#` heading mentions
+    "leak", overriding category to "exfil" (system-prompt leaking is a
+    data-exfiltration technique regardless of which model it targets).
+    """
+    sections = []
+    current_h1 = None
+    current_h2 = None
+    current_lines = []
+
+    def flush():
+        if current_h2 is not None and current_lines:
+            sections.append((current_h1, current_h2, "\n".join(current_lines)))
+
+    for line in raw_text.splitlines():
+        h1_match = re.match(r"^#\s+(.*)", line)
+        h2_match = re.match(r"^##\s+(.*)", line)
+        if h1_match:
+            flush()
+            current_h1 = h1_match.group(1).strip()
+            current_h2 = None
+            current_lines = []
+            continue
+        if h2_match:
+            flush()
+            current_h2 = h2_match.group(1).strip()
+            current_lines = []
+            continue
+        current_lines.append(line)
+    flush()
+
+    results = []
+    for h1_title, h2_title, section_text in sections:
+        model = None
+        lowered_h2 = h2_title.lower()
+        for key, tag in MODEL_HEADER_MAP.items():
+            if key in lowered_h2:
+                model = tag
+                break
+        category_override = "exfil" if (h1_title and "leak" in h1_title.lower()) else None
+        for span in parse_markdown_code_blocks(section_text):
+            results.append({"text": span, "model": model, "category": category_override})
+    return results
+
+
 PARSERS = {
     "parse_garak_python_module": parse_garak_python_module,
     "parse_markdown_code_blocks": parse_markdown_code_blocks,
     "parse_json_array": parse_json_array,
+    "parse_markdown_by_model_sections": parse_markdown_by_model_sections,
 }
 
 
@@ -247,12 +308,16 @@ def main():
             print("WARNING: %s" % err)
             continue
         print("Fetched %d raw entries from %s" % (len(entries), source["name"]))
-        for text in entries:
+        for raw_entry in entries:
+            if isinstance(raw_entry, dict):
+                text, entry_model, entry_category = raw_entry["text"], raw_entry.get("model"), raw_entry.get("category")
+            else:
+                text, entry_model, entry_category = raw_entry, None, None
             text = text.strip()
             if not text or len(text) > 2000:
                 continue
-            category = infer_category(text, source.get("category"))
-            model = source.get("model")
+            category = entry_category or infer_category(text, source.get("category"))
+            model = entry_model or source.get("model")
             fp = fingerprint(text)
             fingerprint_sources[fp].add(source["name"])
             if model:

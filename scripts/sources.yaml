@@ -45,6 +45,20 @@ sources:
     parser: parse_markdown_code_blocks
     category: jailbreak
 
+  # Organized by the document's own ## headers per model (ChatGPT, Claude,
+  # Llama2, Gemini2.0, Grok3, DeepSeek), plus a "LLM System Prompts
+  # Leaking" section. Verified during planning: content is persona/
+  # roleplay guardrail-testing prompts (DAN-style), not the
+  # harmful-compliance archives this repo deliberately excludes (see
+  # README). category/model both null here because
+  # parse_markdown_by_model_sections determines them per-entry from the
+  # document's own section headers.
+  - name: langgptai-llm-jailbreaks
+    url: https://raw.githubusercontent.com/langgptai/LLM-Jailbreaks/main/README.md
+    parser: parse_markdown_by_model_sections
+    category: null
+    model: null
+
   # Add more here, e.g.:
   # - name: promptfoo-redteam-jailbreak
   #   url: https://raw.githubusercontent.com/promptfoo/promptfoo/main/<path-to-plugin-data>
