@@ -3,6 +3,7 @@ import os
 import json
 import tempfile
 import shutil
+import pytest
 
 from collections import defaultdict
 
@@ -103,7 +104,7 @@ def test_model_tag_not_lost_when_generic_source_processed_first():
     assert "openai" in fingerprint_models[fp]
 
 
-from fetch_and_build import build_payload_index
+from fetch_and_build import build_payload_index, check_not_regressed
 
 
 def test_build_payload_index_shape_and_sorting():
@@ -130,3 +131,35 @@ def test_build_payload_index_shape_and_sorting():
             "models": ["openai"], "source_count": 2, "sources": ["source-x", "source-y"],
         },
     ]
+
+
+def test_check_not_regressed_raises_on_zero():
+    with pytest.raises(SystemExit):
+        check_not_regressed(0, "/nonexistent/path/metadata.json")
+
+
+def test_check_not_regressed_passes_with_no_baseline_file():
+    check_not_regressed(10, "/nonexistent/path/metadata.json")  # should not raise
+
+
+def test_check_not_regressed_raises_on_big_drop():
+    tmp_dir = tempfile.mkdtemp()
+    try:
+        meta_path = os.path.join(tmp_dir, "metadata.json")
+        with open(meta_path, "w") as f:
+            json.dump({"total_unique_payloads": 100}, f)
+        with pytest.raises(SystemExit):
+            check_not_regressed(40, meta_path)  # 60% drop
+    finally:
+        shutil.rmtree(tmp_dir)
+
+
+def test_check_not_regressed_allows_small_drop():
+    tmp_dir = tempfile.mkdtemp()
+    try:
+        meta_path = os.path.join(tmp_dir, "metadata.json")
+        with open(meta_path, "w") as f:
+            json.dump({"total_unique_payloads": 100}, f)
+        check_not_regressed(80, meta_path)  # 20% drop, should not raise
+    finally:
+        shutil.rmtree(tmp_dir)

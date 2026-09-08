@@ -209,6 +209,23 @@ def build_payload_index(seen_fingerprints, fingerprint_sources, fingerprint_mode
     return index
 
 
+REGRESSION_DROP_THRESHOLD = 0.5
+
+
+def check_not_regressed(total_unique, metadata_path):
+    if total_unique == 0:
+        raise SystemExit("Refusing to write: total_unique_payloads is 0 (all sources failed?)")
+    if os.path.exists(metadata_path):
+        with open(metadata_path) as f:
+            previous = json.load(f)
+        previous_total = previous.get("total_unique_payloads", 0)
+        if previous_total > 0 and total_unique < previous_total * (1 - REGRESSION_DROP_THRESHOLD):
+            raise SystemExit(
+                "Refusing to write: total_unique_payloads dropped from %d to %d (>%.0f%% drop)"
+                % (previous_total, total_unique, REGRESSION_DROP_THRESHOLD * 100)
+            )
+
+
 def main():
     with open(SOURCES_FILE) as f:
         config = yaml.safe_load(f)
@@ -241,6 +258,8 @@ def main():
 
     total_unique = len(seen_fingerprints)
     print("Total unique payloads after dedup: %d" % total_unique)
+
+    check_not_regressed(total_unique, os.path.join(PAYLOADS_DIR, "metadata.json"))
 
     fp_tier = {}
     for fp, (text, category) in seen_fingerprints.items():
