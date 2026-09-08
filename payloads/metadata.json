@@ -1,0 +1,16 @@
+{
+  "generated": "2026-09-08T08:55:50.142857+00:00",
+  "total_unique_payloads": 66,
+  "source_errors": [],
+  "categories": {
+    "encoding": {
+      "small": 3,
+      "medium": 1
+    },
+    "jailbreak": {
+      "small": 38,
+      "medium": 21,
+      "large": 3
+    }
+  }
+}

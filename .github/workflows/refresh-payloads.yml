@@ -1,0 +1,39 @@
+name: Refresh Payload Lists
+
+on:
+  schedule:
+    - cron: '0 3 * * 0'   # weekly, Sundays 03:00 UTC
+  workflow_dispatch: {}    # allows manual "Run workflow" trigger from the GitHub UI
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r scripts/requirements.txt
+
+      - name: Fetch and rebuild payload lists
+        run: python3 scripts/fetch_and_build.py
+
+      - name: Commit changes if any
+        run: |
+          git config user.name "promptbreaker-bot"
+          git config user.email "actions@users.noreply.github.com"
+          if git diff --quiet payloads/; then
+            echo "No changes to payload lists this run."
+          else
+            git add payloads/
+            git commit -m "Auto-refresh payload lists ($(date -u +%Y-%m-%d))"
+            git push
+          fi

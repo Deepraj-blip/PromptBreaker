@@ -1,0 +1,52 @@
+# Sources for the payload aggregator. Add new sources here without touching
+# the fetch script itself. Each source needs:
+#   name: unique identifier, used in dedup provenance tracking
+#   url: raw-content URL (GitHub raw, not the HTML page)
+#   parser: which parser function in fetch_and_build.py to use
+#   category: jailbreak | exfil | override | encoding | (blank = infer from content)
+#
+# NOTE: URLs below need to be verified/updated against the live repos before
+# the cron job is enabled - upstream repos restructure occasionally and a
+# stale path should fail loudly (the script errors per-source, not globally)
+# rather than silently returning nothing.
+
+sources:
+  # NOTE: garak's DAN probes moved their prompt text out of dan.py into
+  # external JSON data files (path not yet verified against the current
+  # repo layout - garak/data/... per their XDG-style data dir convention).
+  # Leaving this source commented out rather than silently returning 0
+  # results. To enable: find the real path (browse
+  # https://github.com/NVIDIA/garak/tree/main/garak/data), point this at
+  # the raw JSON file, and switch parser to parse_json_array.
+  # - name: garak-dan-probes
+  #   url: <verify-path>/garak/data/dan/<file>.json
+  #   parser: parse_json_array
+  #   category: jailbreak
+
+  - name: garak-encoding-probes
+    url: https://raw.githubusercontent.com/NVIDIA/garak/main/garak/probes/encoding.py
+    parser: parse_garak_python_module
+    category: encoding
+
+  - name: garak-continuation-probes
+    url: https://raw.githubusercontent.com/NVIDIA/garak/main/garak/probes/continuation.py
+    parser: parse_garak_python_module
+    category: jailbreak
+
+  - name: payloadsallthethings-prompt-injection
+    url: https://raw.githubusercontent.com/swisskyrepo/PayloadsAllTheThings/master/Prompt%20Injection/README.md
+    parser: parse_markdown_code_blocks
+    category: null   # inferred per-block from surrounding heading text
+
+  # OWASP's own LLM Top 10 project ships a plain markdown doc with concrete
+  # attack examples per category - smaller than PATT but higher signal.
+  - name: owasp-llm-top10-doc
+    url: https://raw.githubusercontent.com/OWASP/www-project-top-10-for-large-language-model-applications/main/2_0_vulns/LLM01_PromptInjection.md
+    parser: parse_markdown_code_blocks
+    category: jailbreak
+
+  # Add more here, e.g.:
+  # - name: promptfoo-redteam-jailbreak
+  #   url: https://raw.githubusercontent.com/promptfoo/promptfoo/main/<path-to-plugin-data>
+  #   parser: parse_json_array
+  #   category: jailbreak
