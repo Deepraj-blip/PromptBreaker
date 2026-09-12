@@ -1,16 +1,16 @@
 {
-  "generated": "2026-09-10T08:46:03.951282+00:00",
-  "total_unique_payloads": 39,
-  "total_risky_payloads": 2,
+  "generated": "2026-09-12T13:26:17.996851+00:00",
+  "total_unique_payloads": 231,
+  "total_risky_payloads": 6,
   "source_errors": [],
   "categories": {
     "encoding": {
       "medium": 4
     },
     "jailbreak": {
-      "small": 14,
-      "medium": 18,
-      "large": 2
+      "small": 22,
+      "medium": 39,
+      "large": 165
     },
     "exfil": {
       "medium": 1
@@ -35,7 +35,8 @@
   "risky": {
     "jailbreak": {
       "small": 1,
-      "large": 1
+      "large": 4,
+      "medium": 1
     }
   }
 }

@@ -14,6 +14,7 @@ Run via cron/GitHub Actions: see .github/workflows/refresh-payloads.yml
 
 import os
 import re
+import io
 import sys
 import json
 import csv
@@ -253,6 +254,31 @@ def parse_json_array(raw_text):
     return []
 
 
+def parse_csv_column(raw_text):
+    """
+    Extract payloads from a CSV that stores one prompt per row (e.g. the
+    verazuo/jailbreak_llms in-the-wild dataset). Uses the real csv reader so
+    quoted, comma- and newline-containing cells are handled correctly. Picks
+    the 'prompt' column by header; if absent, falls back to the longest cell
+    in each row (these datasets put the payload in the widest field).
+    """
+    results = []
+    reader = csv.reader(io.StringIO(raw_text))
+    rows = list(reader)
+    if not rows:
+        return results
+    header = [h.strip().lower() for h in rows[0]]
+    idx = header.index("prompt") if "prompt" in header else None
+    for row in rows[1:]:
+        if not row:
+            continue
+        value = row[idx] if (idx is not None and idx < len(row)) else max(row, key=len)
+        value = value.strip()
+        if value:
+            results.append(value)
+    return results
+
+
 MODEL_HEADER_MAP = {
     "chatgpt": "openai", "gpt": "openai",
     "claude": "anthropic",
@@ -317,6 +343,7 @@ PARSERS = {
     "parse_garak_python_module": parse_garak_python_module,
     "parse_markdown_code_blocks": parse_markdown_code_blocks,
     "parse_json_array": parse_json_array,
+    "parse_csv_column": parse_csv_column,
     "parse_markdown_by_model_sections": parse_markdown_by_model_sections,
 }
 
@@ -508,6 +535,10 @@ def main():
             errors.append(err)
             print("WARNING: %s" % err)
             continue
+        limit = source.get("limit")
+        if limit and len(entries) > limit:
+            entries = entries[:limit]
+            print("Capped %s to first %d entries" % (source["name"], limit))
         print("Fetched %d raw entries from %s" % (len(entries), source["name"]))
         for raw_entry in entries:
             if isinstance(raw_entry, dict):

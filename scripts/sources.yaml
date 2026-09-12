@@ -28,20 +28,38 @@ sources:
     parser: parse_garak_python_module
     category: encoding
 
-  - name: garak-continuation-probes
-    url: https://raw.githubusercontent.com/NVIDIA/garak/main/garak/probes/continuation.py
-    parser: parse_garak_python_module
-    category: jailbreak
+  # REMOVED garak-continuation-probes: continuation.py builds its prompts at
+  # runtime from an external slurprompts.jsonl (no static list to parse), and
+  # its content is hate-speech slur completion — not prompt injection. It
+  # fetched 0 usable payloads. Removed rather than left failing.
+  #
+  # REMOVED owasp-llm-top10-doc: LLM01_PromptInjection.md is explanatory prose
+  # (Description/Prevention), not a bank of copy-paste payloads, so the
+  # payload-vs-prose filter correctly rejected all of it (0 yield). Removed.
 
   - name: payloadsallthethings-prompt-injection
     url: https://raw.githubusercontent.com/swisskyrepo/PayloadsAllTheThings/master/Prompt%20Injection/README.md
     parser: parse_markdown_code_blocks
     category: null   # inferred per-block from surrounding heading text
 
-  # OWASP's own LLM Top 10 project ships a plain markdown doc with concrete
-  # attack examples per category - smaller than PATT but higher signal.
-  - name: owasp-llm-top10-doc
-    url: https://raw.githubusercontent.com/OWASP/www-project-top-10-for-large-language-model-applications/main/2_0_vulns/LLM01_PromptInjection.md
+  # verazuo/jailbreak_llms — the "In-The-Wild Jailbreak Prompts" dataset
+  # (CCS'24). A large CSV of real jailbreak prompts collected from Discord,
+  # Reddit, etc. The 'prompt' column holds the payload. Capped (see limit) so
+  # this curated list stays tight; harmful-compliance entries auto-route to
+  # payloads/risky/ at ingestion, and global dedup + top-N ranking sort the
+  # strongest cross-source payloads to the top regardless of which slice we
+  # take. To widen coverage later, raise or remove `limit`.
+  - name: verazuo-jailbreaks
+    url: https://raw.githubusercontent.com/verazuo/jailbreak_llms/main/data/prompts/jailbreak_prompts_2023_12_25.csv
+    parser: parse_csv_column
+    category: jailbreak
+    limit: 300
+
+  # 0xk1h0/ChatGPT_DAN — a well-known, actively-referenced collection of DAN
+  # ("Do Anything Now") and other persona/roleplay jailbreak prompts, in
+  # markdown code blocks.
+  - name: chatgpt-dan
+    url: https://raw.githubusercontent.com/0xk1h0/ChatGPT_DAN/main/README.md
     parser: parse_markdown_code_blocks
     category: jailbreak
 

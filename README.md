@@ -76,12 +76,22 @@ comparison, not perfect accuracy for any one model.
 
 One payload per line. Blank lines and lines starting with `#` are ignored.
 
-## Sources aggregated (see scripts/fetch_and_build.py)
+## Sources aggregated (see scripts/sources.yaml)
 
-- NVIDIA garak probe modules (dan.py, encoding.py, continuation.py, etc.)
-- PayloadsAllTheThings / Prompt Injection
-- OWASP LLM Top 10 example set
+- PayloadsAllTheThings / Prompt Injection (markdown)
+- verazuo/jailbreak_llms — "In-The-Wild Jailbreak Prompts" dataset, CCS'24
+  (CSV; capped via `limit:` to keep the list curated)
+- 0xk1h0/ChatGPT_DAN — DAN / persona jailbreak prompts (markdown)
+- NVIDIA garak encoding probes (Python module → encoding templates)
+- langgptai/LLM-Jailbreaks — per-model sectioned jailbreak prompts (markdown)
 - (add more in `scripts/sources.yaml` — see below)
+
+Sources are only kept when they actually yield parseable payloads. Two were
+removed for yielding nothing usable: garak's `continuation.py` (builds prompts
+at runtime from an external data file, and its content is hate-speech
+completion, not prompt injection) and the OWASP LLM01 markdown (explanatory
+prose, not a payload bank). A source that stops resolving should be fixed or
+removed rather than left silently returning zero.
 
 Harmful-compliance payloads — prompts tuned to elicit actually harmful
 compliance (malware, weapons, etc.) rather than to test whether a guardrail
