@@ -1,30 +1,24 @@
 {
-  "generated": "2026-09-08T13:49:52.420910+00:00",
-  "total_unique_payloads": 74,
+  "generated": "2026-09-10T08:46:03.951282+00:00",
+  "total_unique_payloads": 39,
+  "total_risky_payloads": 2,
   "source_errors": [],
   "categories": {
     "encoding": {
-      "small": 2,
-      "medium": 2
+      "medium": 4
     },
     "jailbreak": {
-      "small": 33,
-      "medium": 32,
-      "large": 4
+      "small": 14,
+      "medium": 18,
+      "large": 2
     },
     "exfil": {
       "medium": 1
     }
   },
   "models": {
-    "deepseek": {
-      "jailbreak": {
-        "medium": 1
-      }
-    },
     "google": {
       "jailbreak": {
-        "small": 1,
         "medium": 1
       },
       "exfil": {
@@ -33,20 +27,15 @@
     },
     "openai": {
       "jailbreak": {
-        "large": 2,
-        "small": 3,
-        "medium": 1
+        "medium": 2,
+        "large": 2
       }
-    },
-    "anthropic": {
-      "jailbreak": {
-        "medium": 1
-      }
-    },
-    "meta": {
-      "jailbreak": {
-        "small": 1
-      }
+    }
+  },
+  "risky": {
+    "jailbreak": {
+      "small": 1,
+      "large": 1
     }
   }
 }

@@ -24,7 +24,20 @@ payloads/
                                 # "decode-and-execute this" style templates
                                 # from upstream sources (garak etc.);
                                 # runtime encoding transforms are the Burp
-                                # extension's job, not baked in here
+                                # extension's job, not baked in here.
+                                # Upstream {placeholder} tokens are rendered
+                                # to concrete example values at build time so
+                                # each entry is a usable standalone payload
+  risky/
+    <category>/
+      <category>-risky-<tier>.txt
+                                # QUARANTINED harmful-compliance payloads
+                                # (malware/weapons/etc.). Kept for authorized
+                                # engagements but excluded from the generic
+                                # category files, top-N rankings, and
+                                # promptbreaker.csv. Every file carries a loud
+                                # HANDLE-WITH-PRECAUTION banner. Opt in by
+                                # pointing your tool at these files directly
   models/
     <model>/
       <category>/
@@ -70,12 +83,15 @@ One payload per line. Blank lines and lines starting with `#` are ignored.
 - OWASP LLM Top 10 example set
 - (add more in `scripts/sources.yaml` — see below)
 
-Deliberately NOT included by default: raw "liberation"/jailbreak archives
-whose prompts are tuned to elicit actually harmful compliance (malware,
-weapons, etc.) rather than to test whether a guardrail holds. If you want
-to hand-curate specific entries from sources like that for an authorized
-engagement, add them manually to `payloads/manual/` — they won't be
-auto-fetched.
+Harmful-compliance payloads — prompts tuned to elicit actually harmful
+compliance (malware, weapons, etc.) rather than to test whether a guardrail
+holds — are detected at ingestion (`is_harmful_compliance()`) and
+**quarantined** into `payloads/risky/`, not silently dropped. They stay out
+of the generic category files, the top-N rankings, and `promptbreaker.csv`,
+so nothing pulls them in by default; each risky file carries a loud
+authorized-use-only banner. Point your tool at those files explicitly when
+an authorized engagement calls for them. You can also hand-curate entries
+into `payloads/manual/` — those are never auto-fetched or auto-cleaned.
 
 ## Model-specific tagging
 
