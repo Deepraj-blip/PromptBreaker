@@ -360,14 +360,91 @@ def fetch_source(source):
         return [], "%s: %s" % (source["name"], str(e))
 
 
-OVERRIDE_KEYWORDS = [
-    "override your instructions", "override the system prompt",
-    "new instructions supersede", "system prompt is now",
-    "disregard your system prompt", "your new instructions are",
-]
-JAILBREAK_KEYWORDS = ["ignore", "disregard", "jailbreak", "dan", "developer mode"]
-EXFIL_KEYWORDS = ["reveal", "print your", "repeat everything", "leak", "exfiltrate"]
-ENCODING_KEYWORDS = ["base64", "rot13", "unicode", "encode"]
+# ---------- category classification ----------
+#
+# Classify a payload by its CONTENT, not the source label. Sources tag a
+# whole feed with one category (e.g. verazuo -> jailbreak), which starves
+# every other category; content classification redistributes each payload
+# to the bucket it actually belongs in, using the source's category only as
+# a fallback. Precedence (first match wins):
+#   encoding > exfil > strong-override > jailbreak > weak-override > default
+# Rationale for the order: a specific *goal* (encode / steal the prompt /
+# redefine the system prompt / adopt a persona) beats the generic
+# "ignore previous instructions" wrapper, which alone is a plain override.
+
+# base64/rot13/cipher/decode-and-execute style.
+_ENCODING_RE = re.compile(
+    r"\bbase64\b|\brot-?13\b|\bb64\b|\bhex(?:adecimal)?\b|\bmorse\b|"
+    r"\bcaesar\b|\bcipher\b|\bunicode\b|leetspeak|"
+    r"binary (?:code|string|encoded|encoding)|"  # not bare "binary" (cf. non-binary)
+    r"decode (?:the|this|and|following)|encoded (?:string|text|message)|"
+    r"in your monologue",
+    re.I,
+)
+
+# exfil = an extraction verb aimed at a sensitive target, OR the classic
+# "repeat the words above" prompt-leak family (which is exfil on its own).
+_EXFIL_VERB_RE = re.compile(
+    r"\b(?:reveal|leak|exfiltrat\w*|repeat|print|output|show|reproduce|"
+    r"divulge|disclose|dump|provide|give me|tell me|spell out)\b", re.I)
+_EXFIL_TARGET_RE = re.compile(
+    r"system prompt\b|your (?:initial |original )?(?:prompt\b|instructions|"
+    r"guidelines|rules|directives)|(?:initial|original|above) prompt\b|"
+    r"complete text of the prompt|prompt as the response|verbatim|"
+    r"password|credentials|api[ _-]?key|\bsecret|confidential", re.I)
+_EXFIL_ABOVE_RE = re.compile(
+    r"(?:words|text|everything|sentence|content|lines?) (?:above|before this)|"
+    r"repeat everything|above starting with", re.I)
+
+# strong override = explicitly redefining/replacing the system instructions.
+_STRONG_OVERRIDE_RE = re.compile(
+    r"system prompt is now|your (?:new )?instructions are now|"
+    r"your new instructions are|new instructions (?:supersede|replace)|"
+    r"these instructions replace|override (?:your|the) (?:instructions|"
+    r"system prompt|guidelines)|disregard your system prompt|"
+    r"you must now (?:follow|obey)",
+    re.I,
+)
+
+# jailbreak = persona / roleplay / restriction-removal.
+_JAILBREAK_RE = re.compile(
+    r"\bdan\b|do anything now|developer mode|jailbreak|\bact(?:ing)? as\b|"
+    r"you are (?:now|a|an|no longer|going|in)\b|you'?re (?:now|a|an|going)\b|"
+    r"pretend|role[\s-]?play|unrestricted|no restrictions?|"
+    r"without restrictions?|no filters?|no rules|stay in character|"
+    r"opposite mode|\baim\b|\bstan\b|villain|evil (?:ai|assistant|version)|"
+    r"immoral|unethical|hypothetical (?:response|scenario)|"
+    r"imagine (?:you|a world|that)|ignore your (?:guidelines|rules|programming)|"
+    r"from now on,? you (?:will|are|can|must|have)|answer .*? in 2 ways|"
+    r"(?:fictional|imaginary) character|is a character|character (?:named|called)",
+    re.I,
+)
+
+# weak override = a bare "ignore/disregard the previous instructions" wrapper
+# with no more specific goal attached.
+_WEAK_OVERRIDE_RE = re.compile(
+    r"(?:ignore|disregard|forget|bypass) (?:all |any |the )?"
+    r"(?:previous|prior|above|earlier|foregoing|preceding)|"
+    r"ignore everything|forget everything|new instruction",
+    re.I,
+)
+
+
+_EXFIL_PROXIMITY = 60  # chars between verb and target to count as one intent
+
+
+def _is_exfil(text):
+    """Exfil = 'words above' family, or an extraction verb NEAR a sensitive
+    target. Proximity matters: in a long jailbreak prompt an unrelated verb
+    and the word 'prompt' can both appear, which must not read as exfil."""
+    if _EXFIL_ABOVE_RE.search(text):
+        return True
+    verbs = [m.start() for m in _EXFIL_VERB_RE.finditer(text)]
+    if not verbs:
+        return False
+    targets = [m.start() for m in _EXFIL_TARGET_RE.finditer(text)]
+    return any(abs(v - t) <= _EXFIL_PROXIMITY for v in verbs for t in targets)
+
 
 # Terms indicating a request to actually PRODUCE harmful artifacts
 # (malware, weapons, drugs, abuse material) rather than to test whether a
@@ -391,17 +468,19 @@ def is_harmful_compliance(text):
 
 
 def infer_category(text, default_category):
+    """Content-first classification; source category is only a fallback."""
+    if _ENCODING_RE.search(text):
+        return "encoding"
+    if _is_exfil(text):
+        return "exfil"
+    if _STRONG_OVERRIDE_RE.search(text):
+        return "override"
+    if _JAILBREAK_RE.search(text):
+        return "jailbreak"
+    if _WEAK_OVERRIDE_RE.search(text):
+        return "override"
     if default_category:
         return default_category
-    lowered = text.lower()
-    if any(k in lowered for k in OVERRIDE_KEYWORDS):
-        return "override"
-    if any(k in lowered for k in JAILBREAK_KEYWORDS):
-        return "jailbreak"
-    if any(k in lowered for k in EXFIL_KEYWORDS):
-        return "exfil"
-    if any(k in lowered for k in ENCODING_KEYWORDS):
-        return "encoding"
     return "jailbreak"  # safe default bucket
 
 
