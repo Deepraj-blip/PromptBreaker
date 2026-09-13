@@ -63,6 +63,18 @@ sources:
     parser: parse_markdown_code_blocks
     category: jailbreak
 
+  # reshabhs/SPML_Chatbot_Prompt_Injection — a labeled chatbot prompt-injection
+  # dataset. Category-specific bulk source for the otherwise-thin override and
+  # exfil buckets: parse_spml_injections keeps only short, payload-shaped real
+  # injections (dropping scaffolding, cover-story bloat, and mojibake), and
+  # content classification files each as override/exfil/jailbreak. Capped for a
+  # curated list; the underlying dataset is synthetic, so we take a tight slice.
+  - name: spml-chatbot-injections
+    url: https://huggingface.co/datasets/reshabhs/SPML_Chatbot_Prompt_Injection/resolve/main/spml_prompt_injection.csv
+    parser: parse_spml_injections
+    category: null
+    limit: 60
+
   # Organized by the document's own ## headers per model (ChatGPT, Claude,
   # Llama2, Gemini2.0, Grok3, DeepSeek), plus a "LLM System Prompts
   # Leaking" section. Mostly persona/roleplay guardrail-testing prompts,

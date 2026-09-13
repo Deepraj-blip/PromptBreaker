@@ -279,6 +279,39 @@ def parse_csv_column(raw_text):
     return results
 
 
+SPML_MAX_LEN = 200  # keep only tight injections; the dataset wraps many in
+                    # long synthetic "cover stories" that bloat the large tier
+
+
+def parse_spml_injections(raw_text):
+    """
+    reshabhs/SPML_Chatbot_Prompt_Injection: columns
+    'System Prompt, User Prompt, Prompt injection, Degree, Source'. The attack
+    lives in 'User Prompt'; 'Prompt injection'==1 marks a real injection. We
+    keep only SHORT, payload-shaped user prompts (dropping the defender-side
+    system-prompt scaffolding this dataset sometimes stores there, the long
+    cover-story variants, and mojibake-corrupted rows) so this source enriches
+    the override/exfil categories with tight, high-signal injections rather
+    than synthetic bloat. Category is left to content classification.
+    """
+    results = []
+    reader = csv.DictReader(io.StringIO(raw_text))
+    for row in reader:
+        if str(row.get("Prompt injection", "")).strip() != "1":
+            continue
+        text = (row.get("User Prompt") or "").strip()
+        if not text or len(text) > SPML_MAX_LEN:
+            continue
+        if text[:12].lower().startswith(("you are", "you're", "you act", "act as")):
+            continue  # system-prompt scaffolding, not an attack payload
+        if any(bad in text for bad in ("â", "Ã", "€", "�")):
+            continue  # mojibake-corrupted row
+        if not looks_like_payload(text):
+            continue
+        results.append(text)
+    return results
+
+
 MODEL_HEADER_MAP = {
     "chatgpt": "openai", "gpt": "openai",
     "claude": "anthropic",
@@ -344,6 +377,7 @@ PARSERS = {
     "parse_markdown_code_blocks": parse_markdown_code_blocks,
     "parse_json_array": parse_json_array,
     "parse_csv_column": parse_csv_column,
+    "parse_spml_injections": parse_spml_injections,
     "parse_markdown_by_model_sections": parse_markdown_by_model_sections,
 }
 
@@ -423,9 +457,11 @@ _JAILBREAK_RE = re.compile(
 # weak override = a bare "ignore/disregard the previous instructions" wrapper
 # with no more specific goal attached.
 _WEAK_OVERRIDE_RE = re.compile(
-    r"(?:ignore|disregard|forget|bypass) (?:all |any |the )?"
-    r"(?:previous|prior|above|earlier|foregoing|preceding)|"
-    r"ignore everything|forget everything|new instruction",
+    r"(?:ignore|disregard|forget|bypass|override) "
+    r"(?:all |any |the |your |its |these |those |my )*"
+    r"(?:previous|prior|above|earlier|foregoing|preceding|original|initial|"
+    r"instructions?|directions?|rules?|guidelines?|commands?|directives?|"
+    r"everything)|new instruction",
     re.I,
 )
 
