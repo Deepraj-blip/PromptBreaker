@@ -528,3 +528,13 @@ def test_write_payload_csv_quotes_special_chars():
         assert rows[1][3] == ""
     finally:
         shutil.rmtree(tmp)
+
+
+def test_combined_tier_union_dedupes_across_categories():
+    from fetch_and_build import build_combined_tiers
+    seen = {"a": ("jail one", "jailbreak"), "b": ("exfil one", "exfil"),
+            "c": ("jail one", "jailbreak")}  # dup text, different fp
+    fp_tier = {"a": "small", "b": "small", "c": "medium"}
+    combined = build_combined_tiers(seen, fp_tier)
+    assert sorted(combined["small"]) == ["exfil one", "jail one"]
+    assert combined["medium"] == ["jail one"]

@@ -520,6 +520,14 @@ def infer_category(text, default_category):
     return "jailbreak"  # safe default bucket
 
 
+def build_combined_tiers(seen_fingerprints, fp_tier):
+    """All categories combined, grouped by tier: {tier: [unique texts]}."""
+    combined = defaultdict(list)
+    for fp, (text, _category) in seen_fingerprints.items():
+        combined[fp_tier[fp]].append(text)
+    return {tier: sorted(set(texts)) for tier, texts in combined.items()}
+
+
 def write_tier_files(base_dir, filename_prefix, tiers, header_fields, generated_ts, banner_lines=None):
     os.makedirs(base_dir, exist_ok=True)
     header_bits = " ".join("%s=%s" % (k, v) for k, v in header_fields.items())
@@ -723,6 +731,10 @@ def main():
         cat_dir = os.path.join(PAYLOADS_DIR, category)
         metadata["categories"][category] = write_tier_files(
             cat_dir, category, tiers, {"category": category}, metadata["generated"])
+
+    combined_tiers = build_combined_tiers(seen_fingerprints, fp_tier)
+    write_tier_files(os.path.join(PAYLOADS_DIR, "all"), "all", combined_tiers,
+                     {"category": "all"}, metadata["generated"])
 
     for model, cats in by_model.items():
         model_meta = {}
