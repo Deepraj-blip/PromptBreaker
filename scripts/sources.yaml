@@ -73,7 +73,7 @@ sources:
     url: https://huggingface.co/datasets/reshabhs/SPML_Chatbot_Prompt_Injection/resolve/main/spml_prompt_injection.csv
     parser: parse_spml_injections
     category: null
-    limit: 60
+    limit: 150
 
   # Organized by the document's own ## headers per model (ChatGPT, Claude,
   # Llama2, Gemini2.0, Grok3, DeepSeek), plus a "LLM System Prompts

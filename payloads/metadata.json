@@ -1,6 +1,6 @@
 {
-  "generated": "2026-09-13T19:22:21.304465+00:00",
-  "total_unique_payloads": 291,
+  "generated": "2026-09-15T22:02:48.948505+00:00",
+  "total_unique_payloads": 381,
   "total_risky_payloads": 6,
   "source_errors": [],
   "categories": {
@@ -10,16 +10,16 @@
     },
     "override": {
       "small": 2,
-      "medium": 20,
+      "medium": 44,
       "large": 1
     },
     "exfil": {
-      "medium": 10,
+      "medium": 30,
       "small": 1
     },
     "jailbreak": {
-      "medium": 70,
-      "small": 18,
+      "medium": 114,
+      "small": 20,
       "large": 164
     }
   },
