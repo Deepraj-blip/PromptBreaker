@@ -538,3 +538,26 @@ def test_combined_tier_union_dedupes_across_categories():
     combined = build_combined_tiers(seen, fp_tier)
     assert sorted(combined["small"]) == ["exfil one", "jail one"]
     assert combined["medium"] == ["jail one"]
+
+
+def test_manifest_entry_from_path_classifies_and_counts(tmp_path):
+    from fetch_and_build import manifest_entry_for
+    p = tmp_path / "jailbreak-medium.txt"
+    p.write_text("# Auto-generated\n# header\npayload one\n\npayload two\n")
+    entry = manifest_entry_for(str(p), "payloads/jailbreak/jailbreak-medium.txt")
+    assert entry["id"] == "jailbreak-medium"
+    assert entry["category"] == "jailbreak" and entry["tier"] == "medium"
+    assert entry["model"] is None and entry["group"] == "category"
+    assert entry["count"] == 2
+    assert entry["name"] == "Jailbreak — Medium"
+
+def test_manifest_excludes_risky(tmp_path):
+    from fetch_and_build import build_lists_manifest
+    (tmp_path / "jailbreak").mkdir()
+    (tmp_path / "jailbreak" / "jailbreak-small.txt").write_text("# Auto-generated\nx\n")
+    (tmp_path / "risky").mkdir(); (tmp_path / "risky" / "jailbreak").mkdir()
+    (tmp_path / "risky" / "jailbreak" / "jailbreak-risky-small.txt").write_text("# Auto-generated\nbad\n")
+    manifest = build_lists_manifest(str(tmp_path), "2026-01-01T00:00:00Z")
+    ids = [e["id"] for e in manifest["lists"]]
+    assert "jailbreak-small" in ids
+    assert all("risky" not in e["path"] for e in manifest["lists"])

@@ -1,0 +1,205 @@
+{
+  "generated": "2026-09-15T22:36:34.825702+00:00",
+  "lists": [
+    {
+      "id": "encoding-medium",
+      "name": "Encoding \u2014 Medium",
+      "path": "payloads/encoding/encoding-medium.txt",
+      "category": "encoding",
+      "tier": "medium",
+      "model": null,
+      "count": 4,
+      "group": "category"
+    },
+    {
+      "id": "encoding-small",
+      "name": "Encoding \u2014 Small",
+      "path": "payloads/encoding/encoding-small.txt",
+      "category": "encoding",
+      "tier": "small",
+      "model": null,
+      "count": 1,
+      "group": "category"
+    },
+    {
+      "id": "exfil-medium",
+      "name": "Exfil \u2014 Medium",
+      "path": "payloads/exfil/exfil-medium.txt",
+      "category": "exfil",
+      "tier": "medium",
+      "model": null,
+      "count": 30,
+      "group": "category"
+    },
+    {
+      "id": "exfil-small",
+      "name": "Exfil \u2014 Small",
+      "path": "payloads/exfil/exfil-small.txt",
+      "category": "exfil",
+      "tier": "small",
+      "model": null,
+      "count": 1,
+      "group": "category"
+    },
+    {
+      "id": "jailbreak-large",
+      "name": "Jailbreak \u2014 Large",
+      "path": "payloads/jailbreak/jailbreak-large.txt",
+      "category": "jailbreak",
+      "tier": "large",
+      "model": null,
+      "count": 164,
+      "group": "category"
+    },
+    {
+      "id": "jailbreak-medium",
+      "name": "Jailbreak \u2014 Medium",
+      "path": "payloads/jailbreak/jailbreak-medium.txt",
+      "category": "jailbreak",
+      "tier": "medium",
+      "model": null,
+      "count": 114,
+      "group": "category"
+    },
+    {
+      "id": "jailbreak-small",
+      "name": "Jailbreak \u2014 Small",
+      "path": "payloads/jailbreak/jailbreak-small.txt",
+      "category": "jailbreak",
+      "tier": "small",
+      "model": null,
+      "count": 20,
+      "group": "category"
+    },
+    {
+      "id": "override-large",
+      "name": "Override \u2014 Large",
+      "path": "payloads/override/override-large.txt",
+      "category": "override",
+      "tier": "large",
+      "model": null,
+      "count": 1,
+      "group": "category"
+    },
+    {
+      "id": "override-medium",
+      "name": "Override \u2014 Medium",
+      "path": "payloads/override/override-medium.txt",
+      "category": "override",
+      "tier": "medium",
+      "model": null,
+      "count": 44,
+      "group": "category"
+    },
+    {
+      "id": "override-small",
+      "name": "Override \u2014 Small",
+      "path": "payloads/override/override-small.txt",
+      "category": "override",
+      "tier": "small",
+      "model": null,
+      "count": 2,
+      "group": "category"
+    },
+    {
+      "id": "all-large",
+      "name": "All categories \u2014 Large",
+      "path": "payloads/all/all-large.txt",
+      "category": null,
+      "tier": "large",
+      "model": null,
+      "count": 165,
+      "group": "combined"
+    },
+    {
+      "id": "all-medium",
+      "name": "All categories \u2014 Medium",
+      "path": "payloads/all/all-medium.txt",
+      "category": null,
+      "tier": "medium",
+      "model": null,
+      "count": 192,
+      "group": "combined"
+    },
+    {
+      "id": "all-small",
+      "name": "All categories \u2014 Small",
+      "path": "payloads/all/all-small.txt",
+      "category": null,
+      "tier": "small",
+      "model": null,
+      "count": 24,
+      "group": "combined"
+    },
+    {
+      "id": "google-exfil-medium",
+      "name": "Google \u00b7 Exfil \u2014 Medium",
+      "path": "payloads/models/google/exfil/google-exfil-medium.txt",
+      "category": "exfil",
+      "tier": "medium",
+      "model": "google",
+      "count": 1,
+      "group": "model"
+    },
+    {
+      "id": "google-jailbreak-medium",
+      "name": "Google \u00b7 Jailbreak \u2014 Medium",
+      "path": "payloads/models/google/jailbreak/google-jailbreak-medium.txt",
+      "category": "jailbreak",
+      "tier": "medium",
+      "model": "google",
+      "count": 1,
+      "group": "model"
+    },
+    {
+      "id": "openai-jailbreak-large",
+      "name": "OPENAI \u00b7 Jailbreak \u2014 Large",
+      "path": "payloads/models/openai/jailbreak/openai-jailbreak-large.txt",
+      "category": "jailbreak",
+      "tier": "large",
+      "model": "openai",
+      "count": 2,
+      "group": "model"
+    },
+    {
+      "id": "openai-jailbreak-medium",
+      "name": "OPENAI \u00b7 Jailbreak \u2014 Medium",
+      "path": "payloads/models/openai/jailbreak/openai-jailbreak-medium.txt",
+      "category": "jailbreak",
+      "tier": "medium",
+      "model": "openai",
+      "count": 2,
+      "group": "model"
+    },
+    {
+      "id": "top100",
+      "name": "Top 100 (ranked by cross-source agreement)",
+      "path": "payloads/top100.txt",
+      "category": null,
+      "tier": null,
+      "model": null,
+      "count": 100,
+      "group": "ranked"
+    },
+    {
+      "id": "top1000",
+      "name": "Top 1000 (ranked by cross-source agreement)",
+      "path": "payloads/top1000.txt",
+      "category": null,
+      "tier": null,
+      "model": null,
+      "count": 381,
+      "group": "ranked"
+    },
+    {
+      "id": "top25",
+      "name": "Top 25 (ranked by cross-source agreement)",
+      "path": "payloads/top25.txt",
+      "category": null,
+      "tier": null,
+      "model": null,
+      "count": 25,
+      "group": "ranked"
+    }
+  ]
+}

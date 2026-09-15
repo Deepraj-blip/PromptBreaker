@@ -528,6 +528,72 @@ def build_combined_tiers(seen_fingerprints, fp_tier):
     return {tier: sorted(set(texts)) for tier, texts in combined.items()}
 
 
+_CATEGORY_DISPLAY = {"jailbreak": "Jailbreak", "exfil": "Exfil",
+                     "override": "Override", "encoding": "Encoding",
+                     "all": "All categories"}
+
+def _count_payload_lines(abs_path):
+    n = 0
+    with open(abs_path) as f:
+        for line in f:
+            s = line.strip()
+            if s and not s.startswith("#"):
+                n += 1
+    return n
+
+def manifest_entry_for(abs_path, rel_path):
+    """Classify one generated .txt (rel_path is repo-relative) into a manifest entry, or None to skip."""
+    parts = rel_path.split("/")            # e.g. payloads/jailbreak/jailbreak-medium.txt
+    fname = parts[-1]
+    list_id = fname[:-4] if fname.endswith(".txt") else fname
+    count = _count_payload_lines(abs_path)
+    tier = None
+    for t in ("small", "medium", "large"):
+        if list_id.endswith("-" + t):
+            tier = t
+            break
+    if parts[1] == "models" and len(parts) == 5:      # payloads/models/<model>/<cat>/<file>
+        model, category = parts[2], parts[3]
+        name = "%s · %s — %s" % (model.upper() if model in ("openai",) else model.capitalize(),
+                                 _CATEGORY_DISPLAY.get(category, category.capitalize()),
+                                 tier.capitalize() if tier else "")
+        return {"id": list_id, "name": name.strip(" —"), "path": rel_path,
+                "category": category, "tier": tier, "model": model, "count": count, "group": "model"}
+    if parts[1] == "all":                              # payloads/all/all-<tier>.txt
+        name = "All categories — %s" % (tier.capitalize() if tier else "")
+        return {"id": list_id, "name": name.strip(" —"), "path": rel_path,
+                "category": None, "tier": tier, "model": None, "count": count, "group": "combined"}
+    if fname.startswith("top") and fname[3:-4].isdigit():   # payloads/top<N>.txt
+        n = fname[3:-4]
+        return {"id": list_id, "name": "Top %s (ranked by cross-source agreement)" % n,
+                "path": rel_path, "category": None, "tier": None, "model": None,
+                "count": count, "group": "ranked"}
+    if len(parts) == 3 and tier:                        # payloads/<cat>/<cat>-<tier>.txt
+        category = parts[1]
+        name = "%s — %s" % (_CATEGORY_DISPLAY.get(category, category.capitalize()),
+                            tier.capitalize())
+        return {"id": list_id, "name": name, "path": rel_path, "category": category,
+                "tier": tier, "model": None, "count": count, "group": "category"}
+    return None
+
+def build_lists_manifest(payloads_dir, generated_ts):
+    lists = []
+    for root, _dirs, files in os.walk(payloads_dir):
+        if os.sep + "risky" in os.sep + os.path.relpath(root, payloads_dir):
+            continue
+        for name in sorted(files):
+            if not name.endswith(".txt"):
+                continue
+            abs_path = os.path.join(root, name)
+            rel_path = os.path.join("payloads", os.path.relpath(abs_path, payloads_dir)).replace(os.sep, "/")
+            entry = manifest_entry_for(abs_path, rel_path)
+            if entry and entry["count"] > 0:
+                lists.append(entry)
+    order = {"category": 0, "combined": 1, "model": 2, "ranked": 3}
+    lists.sort(key=lambda e: (order[e["group"]], e["path"]))
+    return {"generated": generated_ts, "lists": lists}
+
+
 def write_tier_files(base_dir, filename_prefix, tiers, header_fields, generated_ts, banner_lines=None):
     os.makedirs(base_dir, exist_ok=True)
     header_bits = " ".join("%s=%s" % (k, v) for k, v in header_fields.items())
@@ -779,6 +845,11 @@ def main():
 
     with open(os.path.join(PAYLOADS_DIR, "metadata.json"), "w") as f:
         json.dump(metadata, f, indent=2)
+
+    manifest = build_lists_manifest(PAYLOADS_DIR, metadata["generated"])
+    with open(os.path.join(PAYLOADS_DIR, "lists.json"), "w") as f:
+        json.dump(manifest, f, indent=2)
+    print("Wrote lists.json (%d selectable lists)" % len(manifest["lists"]))
 
     prune_empty_dirs(PAYLOADS_DIR)
 
